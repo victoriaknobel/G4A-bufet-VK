@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Objednávka školního bufetu</title>
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -33,6 +32,15 @@ input[type="number"] {
   width: 70px;
   text-align: center;
 }
+input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0 15px 0;
+  font-size: 16px;
+}
+label {
+  font-weight: bold;
+}
 #celkem, #pocet {
   text-align: center;
   font-size: 22px;
@@ -58,71 +66,65 @@ button:hover {
 </head>
 
 <body>
-
 <h1>SŠ Kostka – OBJEDNÁVKY BUFET</h1>
 
 <div class="container">
+
+  <!-- ✅ NOVÁ POLE -->
+  <label>VAŠE JMÉNO (Příjmení Jméno):</label>
+  <input type="text" id="jmeno" required>
+
+  <label>TELEFON:</label>
+  <input type="text" id="telefon" placeholder="+420 000 000 000" required>
+
   <div id="items"></div>
 
   <div id="celkem">Celková cena: 0 Kč</div>
   <div id="pocet">Počet kusů: 0</div>
 
   <button onclick="odeslatObjednavku()">ODESLAT OBJEDNÁVKU</button>
+
 </div>
 
 <script>
-
 let items = [];
 
-// ✅ načítání CSV
+// načítání CSV
 async function loadCSV() {
   try {
     const response = await fetch("data_bufet.csv?t=" + Date.now());
-    if (!response.ok) {
-      throw new Error("Soubor nebyl nalezen");
-    }
-
     const text = await response.text();
     parseCSV(text);
     renderItems();
-
   } catch (err) {
-    console.error(err);
     alert("Chyba načítání CSV.");
   }
 }
 
-// ✅ parsování CSV (přeskočení hlavičky)
+// parsování CSV
 function parseCSV(text) {
   items = [];
-
   const lines = text.split("\n");
 
-  // ⬇️ přeskočíme první řádek (hlavičku)
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
-
     if (!line) continue;
 
     const [nazev, cena] = line.split(";");
-
-    if (nazev && cena) {
-      items.push({
-        nazev: nazev.trim(),
-        cena: parseFloat(cena.replace(",", ".")),
-        mnozstvi: 0
-      });
-    }
+    items.push({
+      nazev: nazev.trim(),
+      cena: parseFloat(cena),
+      mnozstvi: 0
+    });
   }
 }
 
-// ✅ vykreslení
+// vykreslení
 function renderItems() {
   const container = document.getElementById("items");
   container.innerHTML = "";
 
   items.forEach((item, index) => {
-
     const div = document.createElement("div");
     div.className = "item";
 
@@ -131,18 +133,17 @@ function renderItems() {
       <input type="number" min="0" value="0"
         onchange="updateItem(${index}, this.value)">
     `;
-
     container.appendChild(div);
   });
 }
 
-// ✅ změna množství
+// změna množství
 function updateItem(index, value) {
   items[index].mnozstvi = parseInt(value) || 0;
   updateSummary();
 }
 
-// ✅ přepočet
+// přepočet
 function updateSummary() {
   let celkem = 0;
   let pocet = 0;
@@ -159,25 +160,54 @@ function updateSummary() {
     "Počet kusů: " + pocet;
 }
 
-// ✅ odeslání
+// ✅ ODESLÁNÍ PŘES MAILTO
 function odeslatObjednavku() {
-  const objednavka = items
-    .filter(item => item.mnozstvi > 0)
-    .map(item => `${item.nazev}: ${item.mnozstvi} ks`);
+
+  const jmeno = document.getElementById("jmeno").value.trim();
+  const telefon = document.getElementById("telefon").value.trim();
+
+  if (!jmeno || !telefon) {
+    alert("Vyplň jméno i telefon!");
+    return;
+  }
+
+  let celkem = 0;
+  let pocet = 0;
+
+  const objednavka = items.filter(item => item.mnozstvi > 0);
 
   if (objednavka.length === 0) {
     alert("Nevybral jsi žádné položky!");
     return;
   }
 
-  alert("Objednávka:\n\n" + objednavka.join("\n"));
+  let text = `Objednávka bufet:\n\n`;
+  text += `Jméno: ${jmeno}\n`;
+  text += `Telefon: ${telefon}\n\n`;
+
+  objednavka.forEach(item => {
+    const cena = item.cena * item.mnozstvi;
+    celkem += cena;
+    pocet += item.mnozstvi;
+
+    text += `${item.nazev} - ${item.mnozstvi} ks - ${cena} Kč\n`;
+  });
+
+  text += `\nCelkem kusů: ${pocet}`;
+  text += `\nCelková cena: ${celkem.toFixed(2)} Kč`;
+
+  // MAILTO
+  const mailtoLink =
+    `mailto:machalek.roman@kostka-skola.cz` +
+    `?subject=Objednávka bufet` +
+    `&body=${encodeURIComponent(text)}`;
+
+  window.location.href = mailtoLink;
 }
 
 // start
 loadCSV();
-
 </script>
 
 </body>
 </html>
-``
